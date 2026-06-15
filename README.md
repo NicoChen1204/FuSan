@@ -112,3 +112,13 @@ const GOOGLE_SHEET_CSV_URL = "你的 CSV 網址";
 - CSV 讀取加入 cache buster，避免 Google Sheets / 瀏覽器快取讀到新舊資料交錯。
 - 移除重複 normalize 的流程，資料只整理一次。
 - 連續按重新整理時，只採用最後一次回傳的資料，避免舊請求覆蓋新請求。
+
+## v11 更新
+- 移除頁面上的提示文字，避免 LINE / iMessage 分享連結時預覽到「提示：目前已連到你的 Google Sheets CSV...」。
+- 新增 link preview meta description：顧得意。
+
+## v12 更新
+- 修正 `null is not an object (evaluating 'notice.style')`。
+- 加回空白隱藏的 `setupNotice` 元素，避免舊版快取 script 找不到元素。
+- script.js 加上 `?v=12`，強制手機瀏覽器更新快取。
+- 提示文字仍然不會出現在 LINE / iMessage 預覽。

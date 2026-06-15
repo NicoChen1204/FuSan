@@ -221,11 +221,11 @@ async function loadTrades() {
   const notice = document.getElementById("setupNotice");
 
   if (!GOOGLE_SHEET_CSV_URL) {
-    notice.style.display = "block";
+    if (notice) notice.style.display = "none";
     return SAMPLE_TRADES;
   }
 
-  notice.style.display = "none";
+  if (notice) notice.style.display = "none";
 
   // 避免 Google Sheets 發布 CSV / 瀏覽器快取造成重新整理時讀到舊資料或新舊資料跳動。
   const separator = GOOGLE_SHEET_CSV_URL.includes("?") ? "&" : "?";
