@@ -275,13 +275,19 @@ function renderDashboard() {
   const totalRealizedPnl = closedTrades.reduce((sum, trade) => sum + toNumber(trade.realizedPnl), 0);
   const openContracts = openTrades.reduce((sum, trade) => sum + toNumber(trade.contracts), 0);
 
-  document.getElementById("openPositionSummary").textContent = openPositions.length
-    ? `${openPositions.length} 組持倉`
-    : "無持倉";
+  const openPositionSummaryEl = document.getElementById("openPositionSummary");
+  const openPositionDetailEl = document.getElementById("openPositionDetail");
 
-  document.getElementById("openPositionDetail").textContent = openPositions.length
-    ? openPositions.map((p) => `${p.product} ${p.direction} ${p.contracts} 口`).join("｜")
-    : "目前沒有未平倉紀錄";
+  if (openPositions.length) {
+    const firstPosition = openPositions[0];
+    openPositionSummaryEl.textContent = `進場 ${formatNumber(firstPosition.avgPrice.toFixed(0))}`;
+    openPositionDetailEl.textContent = openPositions
+      .map((p) => `${p.product} ${p.direction} ${formatNumber(p.contracts)}口｜均價 ${formatNumber(p.avgPrice.toFixed(0))}`)
+      .join("；");
+  } else {
+    openPositionSummaryEl.textContent = "無持倉";
+    openPositionDetailEl.textContent = "目前沒有未平倉紀錄";
+  }
 
   document.getElementById("openContracts").textContent = `${formatNumber(openContracts)} 口`;
 
@@ -300,10 +306,13 @@ function renderDashboard() {
 function renderAllocationOverview(totalRealizedPnl) {
   const overview = document.getElementById("allocationOverview");
   const bars = document.getElementById("allocationBars");
+  if (!overview || !bars) return;
+
   const partnerData = PARTNERS.map((partner) => {
     const allocatedProfit = totalRealizedPnl * partner.ratio;
     const currentAmount = partner.principal + allocatedProfit;
-    return { ...partner, allocatedProfit, currentAmount };
+    const profitPct = partner.principal ? (allocatedProfit / partner.principal) * 100 : 0;
+    return { ...partner, allocatedProfit, currentAmount, profitPct };
   });
 
   const maxValue = Math.max(...partnerData.flatMap((p) => [p.principal, p.currentAmount]), 1);
@@ -312,20 +321,23 @@ function renderAllocationOverview(totalRealizedPnl) {
   overview.innerHTML = partnerData.map((partner) => {
     const currentClass = partner.currentAmount >= partner.principal ? "positive" : "negative";
     const profitClass = partner.allocatedProfit >= 0 ? "positive" : "negative";
-    const profitPct = partner.principal ? (partner.allocatedProfit / partner.principal) * 100 : 0;
     return `
       <div class="allocation-summary-card">
         <div class="allocation-summary-top">
           <div>
             <p class="allocation-name">${partner.name}</p>
-            <p class="allocation-meta">本金 ${formatCurrency(partner.principal)} ｜ 比例 ${Math.round(partner.ratio * 100)}%</p>
+            <p class="allocation-meta">本金 ${formatCurrency(partner.principal)} ｜ 分配比例 ${Math.round(partner.ratio * 100)}%</p>
           </div>
           <div class="allocation-current ${currentClass}">${formatCurrency(partner.currentAmount)}</div>
         </div>
-        <p class="allocation-profit ${profitClass}">
-          已分配收益 ${partner.allocatedProfit >= 0 ? '+' : ''}${formatCurrency(partner.allocatedProfit)}
-          <span>｜${profitPct >= 0 ? '+' : ''}${profitPct.toFixed(2)}%</span>
-        </p>
+        <div class="allocation-return-row">
+          <span>已分配損益</span>
+          <strong class="${profitClass}">${partner.allocatedProfit >= 0 ? '+' : ''}${formatCurrency(partner.allocatedProfit)}</strong>
+        </div>
+        <div class="allocation-return-row">
+          <span>獲利率</span>
+          <strong class="${profitClass}">${partner.profitPct >= 0 ? '+' : ''}${partner.profitPct.toFixed(2)}%</strong>
+        </div>
       </div>
     `;
   }).join("");
@@ -339,7 +351,7 @@ function renderAllocationOverview(totalRealizedPnl) {
         <div class="allocation-bar-head">
           <div>
             <strong>${partner.name}</strong>
-            <span>${formatCurrency(partner.currentAmount)}</span>
+            <span>目前 ${formatCurrency(partner.currentAmount)}｜獲利率 ${partner.profitPct >= 0 ? '+' : ''}${partner.profitPct.toFixed(2)}%</span>
           </div>
           <div class="allocation-bar-side">
             <span>起始 ${formatCurrency(partner.principal)}</span>
@@ -447,7 +459,12 @@ function renderPnlChart(closedTrades) {
   });
 }
 
-function updateHistorySummary(summaryTrades) {
+function updateHistorySummary(summaryTrades = []) {
+  const feeEl = document.getElementById("summaryFee");
+  const taxEl = document.getElementById("summaryTax");
+  const pnlEl = document.getElementById("summaryPnl");
+  if (!feeEl || !taxEl || !pnlEl) return;
+
   const fee = summaryTrades.reduce((sum, trade) => sum + toNumber(trade.fee), 0);
   const tax = summaryTrades.reduce((sum, trade) => sum + toNumber(trade.tax), 0);
   const pnl = summaryTrades.reduce((sum, trade) => {
@@ -455,10 +472,8 @@ function updateHistorySummary(summaryTrades) {
     return sum + toNumber(trade.realizedPnl);
   }, 0);
 
-  document.getElementById("summaryFee").textContent = formatCurrency(fee);
-  document.getElementById("summaryTax").textContent = formatCurrency(tax);
-
-  const pnlEl = document.getElementById("summaryPnl");
+  feeEl.textContent = formatCurrency(fee);
+  taxEl.textContent = formatCurrency(tax);
   pnlEl.textContent = formatCurrency(pnl);
   pnlEl.classList.toggle("positive", pnl >= 0);
   pnlEl.classList.toggle("negative", pnl < 0);
