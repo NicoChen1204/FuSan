@@ -4,7 +4,7 @@
 // 2. 檔案 → 共用 → 發布到網路 → CSV。
 // 3. 把 CSV 網址貼到下面 GOOGLE_SHEET_CSV_URL。
 
-const GOOGLE_SHEET_CSV_URL = ""; // TODO: 貼上你的 Google Sheets CSV 發布網址
+const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQcK9pYxPUdPbxvARsKTPHTzuyHsPyaMITAibNrYLrExXiGVzFOaNLF-TwgPvzeA10aJCjQJlxbWoyi/pub?gid=0&single=true&output=csv";
 
 const ALLOCATION = [
   { name: "分配 A", ratio: 0.75 },
@@ -29,6 +29,7 @@ const SAMPLE_TRADES = [
     exitPrice: 22280,
     pointValue: 200,
     fee: 600,
+    tax: 0,
     realizedPnl: 35400,
     note: "範例資料：突破進場",
   },
@@ -43,6 +44,7 @@ const SAMPLE_TRADES = [
     exitPrice: 22380,
     pointValue: 50,
     fee: 300,
+    tax: 0,
     realizedPnl: 6700,
     note: "範例資料：壓力區反轉",
   },
@@ -57,6 +59,7 @@ const SAMPLE_TRADES = [
     exitPrice: "",
     pointValue: 200,
     fee: 0,
+    tax: 0,
     realizedPnl: "",
     note: "範例資料：目前持倉",
   },
@@ -71,6 +74,7 @@ const SAMPLE_TRADES = [
     exitPrice: "",
     pointValue: 50,
     fee: 0,
+    tax: 0,
     realizedPnl: "",
     note: "範例資料：目前持倉",
   },
@@ -154,8 +158,9 @@ function normalizeTrade(row, index) {
   const exitPrice = exitPriceRaw === "" ? "" : toNumber(exitPriceRaw);
   const pointValue = toNumber(row.pointValue || row.每點價值) || POINT_VALUE[product] || 200;
   const fee = toNumber(row.fee || row.手續費);
+  const tax = toNumber(row.tax || row.交易稅);
   const realizedRaw = row.realizedPnl || row.實現損益 || row.pnl || row.PnL;
-  const calculatedPnl = calculateRealizedPnl({ direction, contracts, entryPrice, exitPrice, pointValue, fee });
+  const calculatedPnl = calculateRealizedPnl({ direction, status, contracts, entryPrice, exitPrice, pointValue, fee, tax });
 
   return {
     id: normalizeText(row.id || row.ID) || `T${index + 1}`,
@@ -168,6 +173,7 @@ function normalizeTrade(row, index) {
     exitPrice,
     pointValue,
     fee,
+    tax,
     realizedPnl: realizedRaw === "" || realizedRaw === undefined ? calculatedPnl : toNumber(realizedRaw),
     note: normalizeText(row.note || row.備註 || row.strategy || row.策略),
   };
@@ -178,7 +184,7 @@ function calculateRealizedPnl(trade) {
   const priceDiff = trade.direction === "空"
     ? trade.entryPrice - trade.exitPrice
     : trade.exitPrice - trade.entryPrice;
-  return priceDiff * trade.pointValue * trade.contracts - trade.fee;
+  return priceDiff * trade.pointValue * trade.contracts - trade.fee - trade.tax;
 }
 
 async function loadTrades() {
@@ -196,7 +202,8 @@ async function loadTrades() {
   }
 
   const csvText = await response.text();
-  return parseCsv(csvText).map(normalizeTrade);
+  const parsed = parseCsv(csvText).map(normalizeTrade);
+  return parsed;
 }
 
 function getClosedTrades() {
@@ -353,7 +360,7 @@ function renderHistory(filteredTrades = null) {
     .slice(0, 30);
 
   if (!source.length) {
-    body.innerHTML = `<tr><td colspan="9">沒有符合條件的成交紀錄</td></tr>`;
+    body.innerHTML = `<tr><td colspan="11">沒有符合條件的成交紀錄</td></tr>`;
     return;
   }
 
@@ -368,6 +375,8 @@ function renderHistory(filteredTrades = null) {
         <td>${formatNumber(trade.contracts)}</td>
         <td>${formatNumber(trade.entryPrice)}</td>
         <td>${trade.exitPrice === "" ? "—" : formatNumber(trade.exitPrice)}</td>
+        <td>${formatCurrency(trade.fee)}</td>
+        <td>${formatCurrency(trade.tax)}</td>
         <td class="${trade.status === "已平倉" ? pnlClass : ""}">${trade.status === "已平倉" ? formatCurrency(trade.realizedPnl) : "—"}</td>
         <td>${trade.note || "—"}</td>
       </tr>
