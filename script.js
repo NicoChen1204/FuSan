@@ -6,9 +6,9 @@
 
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQcK9pYxPUdPbxvARsKTPHTzuyHsPyaMITAibNrYLrExXiGVzFOaNLF-TwgPvzeA10aJCjQJlxbWoyi/pub?gid=0&single=true&output=csv";
 
-const ALLOCATION = [
-  { name: "分配 A", ratio: 0.75 },
-  { name: "分配 B", ratio: 0.25 },
+const PARTNERS = [
+  { name: "A", ratio: 0.75, principal: 750000 },
+  { name: "B", ratio: 0.25, principal: 250000 },
 ];
 
 const POINT_VALUE = {
@@ -264,13 +264,67 @@ function renderDashboard() {
 
   document.getElementById("closedTradeCount").textContent = `${closedTrades.length} 筆`;
 
-  const allocationA = totalRealizedPnl * ALLOCATION[0].ratio;
-  const allocationB = totalRealizedPnl * ALLOCATION[1].ratio;
-  document.getElementById("allocationA").textContent = formatCurrency(allocationA);
-  document.getElementById("allocationB").textContent = formatCurrency(allocationB);
-
+  renderAllocationOverview(totalRealizedPnl);
   renderOpenPositions(openPositions);
   renderPnlChart(closedTrades);
+}
+
+function renderAllocationOverview(totalRealizedPnl) {
+  const overview = document.getElementById("allocationOverview");
+  const bars = document.getElementById("allocationBars");
+  const partnerData = PARTNERS.map((partner) => {
+    const allocatedProfit = totalRealizedPnl * partner.ratio;
+    const currentAmount = partner.principal + allocatedProfit;
+    return { ...partner, allocatedProfit, currentAmount };
+  });
+
+  const maxValue = Math.max(...partnerData.flatMap((p) => [p.principal, p.currentAmount]), 1);
+  const scaleMax = maxValue * 1.1;
+
+  overview.innerHTML = partnerData.map((partner) => {
+    const currentClass = partner.currentAmount >= partner.principal ? "positive" : "negative";
+    const profitClass = partner.allocatedProfit >= 0 ? "positive" : "negative";
+    return `
+      <div class="allocation-summary-card">
+        <div class="allocation-summary-top">
+          <div>
+            <p class="allocation-name">${partner.name}</p>
+            <p class="allocation-meta">本金 ${formatCurrency(partner.principal)} ｜ 比例 ${Math.round(partner.ratio * 100)}%</p>
+          </div>
+          <div class="allocation-current ${currentClass}">${formatCurrency(partner.currentAmount)}</div>
+        </div>
+        <p class="allocation-profit ${profitClass}">已分配收益 ${partner.allocatedProfit >= 0 ? '+' : ''}${formatCurrency(partner.allocatedProfit)}</p>
+      </div>
+    `;
+  }).join("");
+
+  bars.innerHTML = partnerData.map((partner) => {
+    const fillPct = Math.max(0, Math.min(100, (partner.currentAmount / scaleMax) * 100));
+    const markerPct = Math.max(0, Math.min(100, (partner.principal / scaleMax) * 100));
+    const profitClass = partner.currentAmount >= partner.principal ? "up" : "down";
+    return `
+      <div class="allocation-bar-card">
+        <div class="allocation-bar-head">
+          <div>
+            <strong>${partner.name}</strong>
+            <span>${formatCurrency(partner.currentAmount)}</span>
+          </div>
+          <div class="allocation-bar-side">
+            <span>起始 ${formatCurrency(partner.principal)}</span>
+          </div>
+        </div>
+        <div class="allocation-track">
+          <div class="allocation-fill ${profitClass}" style="width:${fillPct}%"></div>
+          <div class="allocation-marker" style="left:${markerPct}%"></div>
+        </div>
+        <div class="allocation-bar-foot">
+          <span>0</span>
+          <span>起跑線：${formatCurrency(partner.principal)}</span>
+          <span>目前：${formatCurrency(partner.currentAmount)}</span>
+        </div>
+      </div>
+    `;
+  }).join("");
 }
 
 function renderOpenPositions(openPositions) {

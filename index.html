@@ -2,8 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#0f172a" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FuSan-FaDaTsai</title>
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -26,8 +25,10 @@
     </section>
 
     <nav class="tabs" aria-label="頁面切換">
-      <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
-      <button class="tab-btn" data-tab="history">歷史成交紀錄</button>
+      <button class="tab-btn active" data-tab="dashboard">總覽</button>
+      <button class="tab-btn" data-tab="allocation">分配損益</button>
+      <button class="tab-btn" data-tab="positions">持倉明細</button>
+      <button class="tab-btn" data-tab="history">歷史紀錄</button>
     </nav>
 
     <section id="dashboard" class="tab-panel active">
@@ -57,51 +58,58 @@
         </article>
       </div>
 
-      <div class="content-grid">
-        <article class="panel">
-          <div class="panel-header">
-            <h3>分配實現損益</h3>
-            <p>比例：75% / 25%</p>
-          </div>
-          <div class="allocation-list">
-            <div class="allocation-item">
-              <span>分配 A｜75%</span>
-              <strong id="allocationA">—</strong>
-            </div>
-            <div class="allocation-item">
-              <span>分配 B｜25%</span>
-              <strong id="allocationB">—</strong>
-            </div>
-          </div>
-        </article>
-
-        <article class="panel">
-          <div class="panel-header">
-            <h3>目前持倉明細</h3>
-            <p>商品 + 多空 + 口數 + 均價</p>
-          </div>
-          <div class="table-wrap compact">
-            <table>
-              <thead>
-                <tr>
-                  <th>商品</th>
-                  <th>方向</th>
-                  <th>口數</th>
-                  <th>均價</th>
-                </tr>
-              </thead>
-              <tbody id="openPositionsBody"></tbody>
-            </table>
-          </div>
-        </article>
-      </div>
-
       <article class="panel chart-panel">
         <div class="panel-header">
           <h3>累積已實現損益趨勢圖</h3>
           <p>依平倉日期累加</p>
         </div>
-        <div class="chart-wrap"><canvas id="pnlChart" height="180"></canvas></div>
+        <canvas id="pnlChart" height="110"></canvas>
+      </article>
+    </section>
+
+
+    <section id="allocation" class="tab-panel">
+      <article class="panel mobile-focus-panel">
+        <div class="panel-header">
+          <div>
+            <h3>目前總收益</h3>
+            <p>目前金額 = 起始本金 + 已分配收益</p>
+          </div>
+          <p>A 本金 75 萬｜B 本金 25 萬</p>
+        </div>
+
+        <div class="allocation-overview" id="allocationOverview"></div>
+
+        <div class="allocation-bars" id="allocationBars"></div>
+
+        <div class="allocation-legend">
+          <span><i class="legend-current"></i>目前金額</span>
+          <span><i class="legend-start"></i>起始金額</span>
+        </div>
+      </article>
+    </section>
+
+    <section id="positions" class="tab-panel">
+      <article class="panel mobile-focus-panel">
+        <div class="panel-header">
+          <div>
+            <h3>目前持倉明細</h3>
+            <p>商品 + 多空 + 口數 + 均價</p>
+          </div>
+        </div>
+        <div class="table-wrap compact">
+          <table>
+            <thead>
+              <tr>
+                <th>商品</th>
+                <th>方向</th>
+                <th>口數</th>
+                <th>均價</th>
+              </tr>
+            </thead>
+            <tbody id="openPositionsBody"></tbody>
+          </table>
+        </div>
       </article>
     </section>
 
