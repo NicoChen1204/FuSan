@@ -100,6 +100,7 @@ const SAMPLE_TRADES = [
 
 let trades = [];
 let pnlChart = null;
+let loadVersion = 0;
 
 const currency = new Intl.NumberFormat("zh-TW", {
   style: "currency",
@@ -122,7 +123,8 @@ function normalizeText(value) {
 
 function toNumber(value) {
   if (value === null || value === undefined || value === "") return 0;
-  return Number(String(value).replace(/,/g, "")) || 0;
+  const cleaned = String(value).replace(/,/g, "").replace(/NT\$|\$/g, "").trim();
+  return Number(cleaned) || 0;
 }
 
 function parseCsvLine(line) {
@@ -224,14 +226,18 @@ async function loadTrades() {
   }
 
   notice.style.display = "none";
-  const response = await fetch(GOOGLE_SHEET_CSV_URL);
+
+  // 避免 Google Sheets 發布 CSV / 瀏覽器快取造成重新整理時讀到舊資料或新舊資料跳動。
+  const separator = GOOGLE_SHEET_CSV_URL.includes("?") ? "&" : "?";
+  const url = `${GOOGLE_SHEET_CSV_URL}${separator}_=${Date.now()}`;
+
+  const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) {
     throw new Error("讀取 Google Sheets 失敗，請確認 CSV 網址是否正確或是否已發布到網路。");
   }
 
   const csvText = await response.text();
-  const parsed = parseCsv(csvText).map(normalizeTrade);
-  return parsed;
+  return parseCsv(csvText);
 }
 
 function getClosedTrades() {
@@ -557,8 +563,14 @@ function setupEvents() {
 }
 
 async function init() {
+  const currentLoad = ++loadVersion;
+
   try {
     const rawTrades = await loadTrades();
+
+    // 若使用者連續重新整理，只採用最後一次回來的資料，避免舊請求覆蓋新請求。
+    if (currentLoad !== loadVersion) return;
+
     // 只要有日期、商品、方向、狀態、口數、進場價，就視為有效資料。
     // 這樣未平倉可保留 exitPrice / fee / tax / realizedPnl 空白，不會報錯。
     trades = rawTrades.map(normalizeTrade).filter((trade) =>
@@ -569,9 +581,11 @@ async function init() {
       trade.contracts &&
       trade.entryPrice
     );
+
     renderDashboard();
     renderHistory();
   } catch (error) {
+    if (currentLoad !== loadVersion) return;
     console.error(error);
     alert(error.message);
   }
