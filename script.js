@@ -7,8 +7,8 @@
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQcK9pYxPUdPbxvARsKTPHTzuyHsPyaMITAibNrYLrExXiGVzFOaNLF-TwgPvzeA10aJCjQJlxbWoyi/pub?gid=0&single=true&output=csv";
 
 const PARTNERS = [
-  { name: "A", ratio: 0.75, principal: 750000 },
-  { name: "B", ratio: 0.25, principal: 250000 },
+  { name: "KH", ratio: 0.75, principal: 750000 },
+  { name: "Nico", ratio: 0.25, principal: 250000 },
 ];
 
 const POINT_VALUE = {
@@ -16,6 +16,24 @@ const POINT_VALUE = {
   "大台": 200,
   "小台": 50,
 };
+
+function inferPointValue(product) {
+  const text = normalizeText(product);
+  // 允許你的格式：小台5月、小台6月、小台近月、小台
+  if (text.includes("小台")) return 50;
+  if (text.includes("台指期") || text.includes("大台")) return 200;
+  return POINT_VALUE[text] || 50;
+}
+
+function isClosedStatus(status) {
+  const text = normalizeText(status);
+  return text === "已平倉" || text === "平倉" || text === "已出場";
+}
+
+function isOpenStatus(status) {
+  const text = normalizeText(status);
+  return text === "未平倉" || text === "持倉" || text === "持倉中" || text === "未出場";
+}
 
 const SAMPLE_TRADES = [
   {
@@ -149,22 +167,29 @@ function parseCsv(csvText) {
 }
 
 function normalizeTrade(row, index) {
-  const product = normalizeText(row.product || row.商品);
-  const direction = normalizeText(row.direction || row.方向);
-  const status = normalizeText(row.status || row.狀態);
-  const contracts = toNumber(row.contracts || row.口數);
-  const entryPrice = toNumber(row.entryPrice || row.進場價 || row.進場);
-  const exitPriceRaw = row.exitPrice || row.出場價 || row.出場;
-  const exitPrice = exitPriceRaw === "" ? "" : toNumber(exitPriceRaw);
-  const pointValue = toNumber(row.pointValue || row.每點價值) || POINT_VALUE[product] || 200;
-  const fee = toNumber(row.fee || row.手續費);
-  const tax = toNumber(row.tax || row.交易稅);
-  const realizedRaw = row.realizedPnl || row.實現損益 || row.pnl || row.PnL;
+  const product = normalizeText(row.product ?? row.商品);
+  const direction = normalizeText(row.direction ?? row.方向);
+  const status = normalizeText(row.status ?? row.狀態);
+  const contracts = toNumber(row.contracts ?? row.口數);
+  const entryPrice = toNumber(row.entryPrice ?? row.進場價 ?? row.進場);
+
+  const exitPriceRaw = row.exitPrice ?? row.出場價 ?? row.出場 ?? "";
+  const exitPriceText = normalizeText(exitPriceRaw);
+  const exitPrice = exitPriceText === "" ? "" : toNumber(exitPriceText);
+
+  // 你的 pointValue 欄位目前是價差，不是每點價值。
+  // 因為目前全部是小台，所以這裡直接用商品名稱推定：小台 = 50。
+  // 未來如果寫「台指期 / 大台」會自動用 200。
+  const pointValue = inferPointValue(product);
+
+  const fee = toNumber(row.fee ?? row.手續費);
+  const tax = toNumber(row.tax ?? row.交易稅);
+  const realizedRaw = row.realizedPnl ?? row.實現損益 ?? row.pnl ?? row.PnL ?? "";
   const calculatedPnl = calculateRealizedPnl({ direction, status, contracts, entryPrice, exitPrice, pointValue, fee, tax });
 
   return {
-    id: normalizeText(row.id || row.ID) || `T${index + 1}`,
-    date: normalizeText(row.date || row.日期),
+    id: normalizeText(row.id ?? row.ID) || `T${index + 1}`,
+    date: normalizeText(row.date ?? row.日期),
     product,
     direction,
     status,
@@ -174,16 +199,19 @@ function normalizeTrade(row, index) {
     pointValue,
     fee,
     tax,
-    realizedPnl: realizedRaw === "" || realizedRaw === undefined ? calculatedPnl : toNumber(realizedRaw),
-    note: normalizeText(row.note || row.備註 || row.strategy || row.策略),
+    realizedPnl: normalizeText(realizedRaw) === "" ? calculatedPnl : toNumber(realizedRaw),
+    note: normalizeText(row.note ?? row.備註 ?? row.strategy ?? row.策略),
   };
 }
 
 function calculateRealizedPnl(trade) {
-  if (trade.exitPrice === "" || trade.status === "未平倉") return 0;
+  if (trade.exitPrice === "" || isOpenStatus(trade.status)) return 0;
+  if (!trade.contracts || !trade.entryPrice) return 0;
+
   const priceDiff = trade.direction === "空"
     ? trade.entryPrice - trade.exitPrice
     : trade.exitPrice - trade.entryPrice;
+
   return priceDiff * trade.pointValue * trade.contracts - trade.fee - trade.tax;
 }
 
@@ -208,12 +236,12 @@ async function loadTrades() {
 
 function getClosedTrades() {
   return trades
-    .filter((trade) => trade.status === "已平倉" || trade.exitPrice !== "")
+    .filter((trade) => isClosedStatus(trade.status) || trade.exitPrice !== "")
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 }
 
 function getOpenTrades() {
-  return trades.filter((trade) => trade.status === "未平倉" || trade.exitPrice === "");
+  return trades.filter((trade) => isOpenStatus(trade.status) || trade.exitPrice === "");
 }
 
 function summarizeOpenPositions(openTrades) {
@@ -284,6 +312,7 @@ function renderAllocationOverview(totalRealizedPnl) {
   overview.innerHTML = partnerData.map((partner) => {
     const currentClass = partner.currentAmount >= partner.principal ? "positive" : "negative";
     const profitClass = partner.allocatedProfit >= 0 ? "positive" : "negative";
+    const profitPct = partner.principal ? (partner.allocatedProfit / partner.principal) * 100 : 0;
     return `
       <div class="allocation-summary-card">
         <div class="allocation-summary-top">
@@ -293,7 +322,10 @@ function renderAllocationOverview(totalRealizedPnl) {
           </div>
           <div class="allocation-current ${currentClass}">${formatCurrency(partner.currentAmount)}</div>
         </div>
-        <p class="allocation-profit ${profitClass}">已分配收益 ${partner.allocatedProfit >= 0 ? '+' : ''}${formatCurrency(partner.allocatedProfit)}</p>
+        <p class="allocation-profit ${profitClass}">
+          已分配收益 ${partner.allocatedProfit >= 0 ? '+' : ''}${formatCurrency(partner.allocatedProfit)}
+          <span>｜${profitPct >= 0 ? '+' : ''}${profitPct.toFixed(2)}%</span>
+        </p>
       </div>
     `;
   }).join("");
@@ -346,7 +378,8 @@ function renderOpenPositions(openPositions) {
 }
 
 function renderPnlChart(closedTrades) {
-  const ctx = document.getElementById("pnlChart");
+  const canvas = document.getElementById("pnlChart");
+  const ctx = canvas.getContext("2d");
   const byDate = new Map();
 
   closedTrades.forEach((trade) => {
@@ -365,7 +398,10 @@ function renderPnlChart(closedTrades) {
       data.push(cumulative);
     });
 
-  if (pnlChart) pnlChart.destroy();
+  if (pnlChart) {
+    pnlChart.destroy();
+    pnlChart = null;
+  }
 
   pnlChart = new Chart(ctx, {
     type: "line",
@@ -376,10 +412,14 @@ function renderPnlChart(closedTrades) {
         data,
         tension: 0.25,
         fill: false,
+        pointRadius: window.innerWidth < 600 ? 2 : 3,
       }],
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      resizeDelay: 150,
       plugins: {
         legend: {
           labels: { color: "#e5e7eb" },
@@ -390,7 +430,6 @@ function renderPnlChart(closedTrades) {
           },
         },
       },
-      maintainAspectRatio: false,
       scales: {
         x: {
           ticks: { color: "#94a3b8", maxTicksLimit: window.innerWidth < 600 ? 4 : 8 },
@@ -408,11 +447,37 @@ function renderPnlChart(closedTrades) {
   });
 }
 
+function updateHistorySummary(summaryTrades) {
+  const fee = summaryTrades.reduce((sum, trade) => sum + toNumber(trade.fee), 0);
+  const tax = summaryTrades.reduce((sum, trade) => sum + toNumber(trade.tax), 0);
+  const pnl = summaryTrades.reduce((sum, trade) => {
+    if (!isClosedStatus(trade.status) && trade.exitPrice === "") return sum;
+    return sum + toNumber(trade.realizedPnl);
+  }, 0);
+
+  document.getElementById("summaryFee").textContent = formatCurrency(fee);
+  document.getElementById("summaryTax").textContent = formatCurrency(tax);
+
+  const pnlEl = document.getElementById("summaryPnl");
+  pnlEl.textContent = formatCurrency(pnl);
+  pnlEl.classList.toggle("positive", pnl >= 0);
+  pnlEl.classList.toggle("negative", pnl < 0);
+}
+
+
 function renderHistory(filteredTrades = null) {
   const body = document.getElementById("historyBody");
-  const source = filteredTrades || [...trades]
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 30);
+  const isFiltered = Array.isArray(filteredTrades);
+
+  const summarySource = isFiltered
+    ? filteredTrades
+    : [...trades];
+
+  const source = isFiltered
+    ? [...filteredTrades].sort((a, b) => new Date(b.date) - new Date(a.date))
+    : [...trades].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 30);
+
+  updateHistorySummary(summarySource);
 
   if (!source.length) {
     body.innerHTML = `<tr><td colspan="11">沒有符合條件的成交紀錄</td></tr>`;
@@ -432,12 +497,13 @@ function renderHistory(filteredTrades = null) {
         <td data-label="出場">${trade.exitPrice === "" ? "—" : formatNumber(trade.exitPrice)}</td>
         <td data-label="手續費">${formatCurrency(trade.fee)}</td>
         <td data-label="交易稅">${formatCurrency(trade.tax)}</td>
-        <td data-label="損益" class="${trade.status === "已平倉" ? pnlClass : ""}">${trade.status === "已平倉" ? formatCurrency(trade.realizedPnl) : "—"}</td>
+        <td data-label="損益" class="${isClosedStatus(trade.status) ? pnlClass : ""}">${isClosedStatus(trade.status) ? formatCurrency(trade.realizedPnl) : "—"}</td>
         <td data-label="備註">${trade.note || "—"}</td>
       </tr>
     `;
   }).join("");
 }
+
 
 function applyDateFilter() {
   const start = document.getElementById("startDate").value;
@@ -478,7 +544,16 @@ function setupEvents() {
 async function init() {
   try {
     const rawTrades = await loadTrades();
-    trades = rawTrades.map(normalizeTrade).filter((trade) => trade.date && trade.product);
+    // 只要有日期、商品、方向、狀態、口數、進場價，就視為有效資料。
+    // 這樣未平倉可保留 exitPrice / fee / tax / realizedPnl 空白，不會報錯。
+    trades = rawTrades.map(normalizeTrade).filter((trade) =>
+      trade.date &&
+      trade.product &&
+      trade.direction &&
+      trade.status &&
+      trade.contracts &&
+      trade.entryPrice
+    );
     renderDashboard();
     renderHistory();
   } catch (error) {

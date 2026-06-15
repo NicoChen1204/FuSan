@@ -657,3 +657,95 @@ td {
     gap: 4px;
   }
 }
+
+
+/* v7: fixed chart height, profit percentage, history filtered totals */
+.chart-panel {
+  overflow: hidden;
+}
+
+.chart-wrap {
+  position: relative;
+  width: 100%;
+  height: 320px;
+  min-height: 320px;
+  max-height: 320px;
+}
+
+.chart-wrap canvas {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 320px !important;
+}
+
+.allocation-profit span {
+  font-weight: 900;
+}
+
+.history-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0 14px;
+}
+
+.history-summary-card {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 13px 14px;
+  min-width: 0;
+}
+
+.history-summary-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 7px;
+}
+
+.history-summary-card strong {
+  display: block;
+  font-size: clamp(18px, 3vw, 24px);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .chart-wrap {
+    height: 250px;
+    min-height: 250px;
+    max-height: 250px;
+  }
+
+  .chart-wrap canvas {
+    max-height: 250px !important;
+  }
+
+  .history-summary {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .history-summary-card {
+    padding: 12px 13px;
+  }
+
+  .history-summary-card strong {
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 390px) {
+  .chart-wrap {
+    height: 230px;
+    min-height: 230px;
+    max-height: 230px;
+  }
+
+  .chart-wrap canvas {
+    max-height: 230px !important;
+  }
+}

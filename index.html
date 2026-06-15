@@ -12,7 +12,7 @@
     <div>
       <p class="eyebrow">Futures Trading Dashboard</p>
       <h1>FuSan-FaDaTsai</h1>
-      <p class="subtitle">台指期 / 小台｜新台幣損益追蹤</p>
+      <p class="subtitle">顧得意</p>
     </div>
     <div class="header-actions">
       <button id="refreshBtn" class="ghost-btn">重新整理</button>
@@ -63,7 +63,9 @@
           <h3>累積已實現損益趨勢圖</h3>
           <p>依平倉日期累加</p>
         </div>
-        <canvas id="pnlChart" height="110"></canvas>
+        <div class="chart-wrap">
+          <canvas id="pnlChart"></canvas>
+        </div>
       </article>
     </section>
 
@@ -75,7 +77,7 @@
             <h3>目前總收益</h3>
             <p>目前金額 = 起始本金 + 已分配收益</p>
           </div>
-          <p>A 本金 75 萬｜B 本金 25 萬</p>
+          <p>KH 本金 75 萬｜Nico 本金 25 萬</p>
         </div>
 
         <div class="allocation-overview" id="allocationOverview"></div>
@@ -131,6 +133,21 @@
             </label>
             <button id="applyFilterBtn" class="primary-btn">篩選</button>
             <button id="resetFilterBtn" class="ghost-btn">重設</button>
+          </div>
+        </div>
+
+        <div class="history-summary" id="historySummary">
+          <div class="history-summary-card">
+            <span>總手續費</span>
+            <strong id="summaryFee">—</strong>
+          </div>
+          <div class="history-summary-card">
+            <span>總交易稅</span>
+            <strong id="summaryTax">—</strong>
+          </div>
+          <div class="history-summary-card">
+            <span>總損益</span>
+            <strong id="summaryPnl">—</strong>
           </div>
         </div>
 
