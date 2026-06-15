@@ -283,10 +283,10 @@ function renderOpenPositions(openPositions) {
 
   body.innerHTML = openPositions.map((position) => `
     <tr>
-      <td>${position.product}</td>
-      <td>${position.direction}</td>
-      <td>${formatNumber(position.contracts)}</td>
-      <td>${formatNumber(position.avgPrice.toFixed(0))}</td>
+      <td data-label="商品">${position.product}</td>
+      <td data-label="方向">${position.direction}</td>
+      <td data-label="口數">${formatNumber(position.contracts)}</td>
+      <td data-label="均價">${formatNumber(position.avgPrice.toFixed(0))}</td>
     </tr>
   `).join("");
 }
@@ -336,9 +336,10 @@ function renderPnlChart(closedTrades) {
           },
         },
       },
+      maintainAspectRatio: false,
       scales: {
         x: {
-          ticks: { color: "#94a3b8" },
+          ticks: { color: "#94a3b8", maxTicksLimit: window.innerWidth < 600 ? 4 : 8 },
           grid: { color: "rgba(148, 163, 184, 0.14)" },
         },
         y: {
@@ -368,17 +369,17 @@ function renderHistory(filteredTrades = null) {
     const pnlClass = toNumber(trade.realizedPnl) >= 0 ? "positive" : "negative";
     return `
       <tr>
-        <td>${trade.date}</td>
-        <td>${trade.product}</td>
-        <td>${trade.direction}</td>
-        <td>${trade.status}</td>
-        <td>${formatNumber(trade.contracts)}</td>
-        <td>${formatNumber(trade.entryPrice)}</td>
-        <td>${trade.exitPrice === "" ? "—" : formatNumber(trade.exitPrice)}</td>
-        <td>${formatCurrency(trade.fee)}</td>
-        <td>${formatCurrency(trade.tax)}</td>
-        <td class="${trade.status === "已平倉" ? pnlClass : ""}">${trade.status === "已平倉" ? formatCurrency(trade.realizedPnl) : "—"}</td>
-        <td>${trade.note || "—"}</td>
+        <td data-label="日期">${trade.date}</td>
+        <td data-label="商品">${trade.product}</td>
+        <td data-label="方向">${trade.direction}</td>
+        <td data-label="狀態">${trade.status}</td>
+        <td data-label="口數">${formatNumber(trade.contracts)}</td>
+        <td data-label="進場">${formatNumber(trade.entryPrice)}</td>
+        <td data-label="出場">${trade.exitPrice === "" ? "—" : formatNumber(trade.exitPrice)}</td>
+        <td data-label="手續費">${formatCurrency(trade.fee)}</td>
+        <td data-label="交易稅">${formatCurrency(trade.tax)}</td>
+        <td data-label="損益" class="${trade.status === "已平倉" ? pnlClass : ""}">${trade.status === "已平倉" ? formatCurrency(trade.realizedPnl) : "—"}</td>
+        <td data-label="備註">${trade.note || "—"}</td>
       </tr>
     `;
   }).join("");
