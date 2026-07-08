@@ -11,6 +11,8 @@ const PARTNERS = [
   { name: "Nico", ratio: 0.25, principal: 500000 },
 ];
 
+const TOTAL_INITIAL_CAPITAL = PARTNERS.reduce((sum, partner) => sum + partner.principal, 0);
+
 const POINT_VALUE = {
   "台指期": 200,
   "大台": 200,
@@ -306,7 +308,7 @@ function renderDashboard() {
 
   renderAllocationOverview(totalRealizedPnl);
   renderOpenPositions(openPositions);
-  renderPnlChart(closedTrades);
+  renderPnlChart(closedTrades, totalRealizedPnl);
 }
 
 function renderAllocationOverview(totalRealizedPnl) {
@@ -395,7 +397,7 @@ function renderOpenPositions(openPositions) {
   `).join("");
 }
 
-function renderPnlChart(closedTrades) {
+function renderPnlChart(closedTrades, totalRealizedPnl = 0) {
   const canvas = document.getElementById("pnlChart");
   const ctx = canvas.getContext("2d");
   const byDate = new Map();
@@ -404,17 +406,26 @@ function renderPnlChart(closedTrades) {
     byDate.set(trade.date, (byDate.get(trade.date) || 0) + toNumber(trade.realizedPnl));
   });
 
-  let cumulative = 0;
-  const labels = [];
-  const data = [];
+  let cumulativePnl = 0;
+  const labels = ["起始"];
+  const equityData = [TOTAL_INITIAL_CAPITAL];
+  const initialCapitalLine = [TOTAL_INITIAL_CAPITAL];
 
   Array.from(byDate.entries())
     .sort((a, b) => new Date(a[0]) - new Date(b[0]))
     .forEach(([date, pnl]) => {
-      cumulative += pnl;
+      cumulativePnl += pnl;
       labels.push(date);
-      data.push(cumulative);
+      equityData.push(TOTAL_INITIAL_CAPITAL + cumulativePnl);
+      initialCapitalLine.push(TOTAL_INITIAL_CAPITAL);
     });
+
+  // 若沒有平倉交易，也顯示 200 萬起始線，不讓圖表空白。
+  if (!closedTrades.length) {
+    labels.push("目前");
+    equityData.push(TOTAL_INITIAL_CAPITAL + totalRealizedPnl);
+    initialCapitalLine.push(TOTAL_INITIAL_CAPITAL);
+  }
 
   if (pnlChart) {
     pnlChart.destroy();
@@ -425,13 +436,23 @@ function renderPnlChart(closedTrades) {
     type: "line",
     data: {
       labels,
-      datasets: [{
-        label: "累積已實現損益",
-        data,
-        tension: 0.25,
-        fill: false,
-        pointRadius: window.innerWidth < 600 ? 2 : 3,
-      }],
+      datasets: [
+        {
+          label: "總資金曲線（200萬基準）",
+          data: equityData,
+          tension: 0.25,
+          fill: false,
+          pointRadius: window.innerWidth < 600 ? 2 : 3,
+        },
+        {
+          label: "起始本金 200萬",
+          data: initialCapitalLine,
+          tension: 0,
+          fill: false,
+          pointRadius: 0,
+          borderDash: [6, 6],
+        },
+      ],
     },
     options: {
       responsive: true,
@@ -444,7 +465,12 @@ function renderPnlChart(closedTrades) {
         },
         tooltip: {
           callbacks: {
-            label: (context) => formatCurrency(context.raw),
+            label: (context) => `${context.dataset.label}: ${formatCurrency(context.raw)}`,
+            afterBody: (items) => {
+              const value = items?.[0]?.raw ?? TOTAL_INITIAL_CAPITAL;
+              const pnl = value - TOTAL_INITIAL_CAPITAL;
+              return `累積損益：${pnl >= 0 ? '+' : ''}${formatCurrency(pnl)}`;
+            },
           },
         },
       },
