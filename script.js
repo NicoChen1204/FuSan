@@ -7,8 +7,8 @@
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQcK9pYxPUdPbxvARsKTPHTzuyHsPyaMITAibNrYLrExXiGVzFOaNLF-TwgPvzeA10aJCjQJlxbWoyi/pub?gid=0&single=true&output=csv";
 
 const PARTNERS = [
-  { name: "KH", ratio: 0.75, principal: 750000 },
-  { name: "Nico", ratio: 0.25, principal: 250000 },
+  { name: "KH", ratio: 0.75, principal: 1500000 },
+  { name: "Nico", ratio: 0.25, principal: 500000 },
 ];
 
 const POINT_VALUE = {
